@@ -3,7 +3,8 @@
 // Money values are stored as Int (whole Rupiah, IDR has no practical minor unit).
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
