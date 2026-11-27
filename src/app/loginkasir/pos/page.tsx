@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { sound } from '@/lib/sound'
 import { CameraScanner } from '@/components/pos/CameraScanner'
 
 import {
@@ -218,10 +219,12 @@ export default function PosPage() {
       const existing = cart.find((l) => l.variantId === item.variantId)
       const label = item.variantName || item.sku
       if (existing && existing.quantity >= item.stock) {
+        sound.playError()
         toast.warning(`Stok ${item.productName} (${label}) tersisa ${item.stock}`)
         return false
       }
       if (!existing && item.stock <= 0) {
+        sound.playError()
         toast.error(`Stok ${item.productName} (${label}) habis`)
         return false
       }
@@ -233,6 +236,7 @@ export default function PosPage() {
         next[idx] = { ...prev[idx], quantity: prev[idx].quantity + 1 }
         return next
       })
+      sound.playSuccess()
       return true
     },
     [cart],
@@ -305,10 +309,14 @@ export default function PosPage() {
         const res = await fetch(`/api/pos/lookup?code=${encodeURIComponent(q)}`)
         const data = await res.json()
         if (!res.ok) {
+          sound.playError()
           toast.error(data.error ?? 'Gagal mencari produk')
           return
         }
         const results: LookupVariant[] = data.results ?? []
+        if (results.length === 0) {
+          sound.playError()
+        }
         if (data.exact && results.length > 0) {
           const r = results[0]
           const added = addToCart({

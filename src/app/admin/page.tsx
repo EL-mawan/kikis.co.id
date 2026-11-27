@@ -521,14 +521,21 @@ export default function AdminDashboardPage() {
           )}
         </ChartCard>
 
-        <Card className="rounded-none gap-4 p-6 shadow-none lg:col-span-2">
+        <Card className="rounded-none gap-4 p-4 sm:p-6 shadow-none lg:col-span-2">
           <CardHeader className="p-0">
-            <div className="flex items-center justify-between gap-2">
-              <CardTitle className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                Peringatan Stok Menipis
-              </CardTitle>
-              <Button asChild variant="ghost" size="sm" className="h-8 text-xs uppercase tracking-wider">
-                <Link href="/admin/inventaris">Kelola Inventaris</Link>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                  Peringatan Stok Menipis
+                </CardTitle>
+                {Boolean(data?.lowStock?.length) && (
+                  <span className="inline-flex items-center justify-center rounded-full bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 text-[10px] font-bold px-2 py-0.5">
+                    {data?.lowStock.length} Varian
+                  </span>
+                )}
+              </div>
+              <Button asChild variant="ghost" size="sm" className="h-8 text-xs uppercase tracking-wider justify-start sm:justify-end px-0 sm:px-3 text-accent hover:text-accent/90">
+                <Link href="/admin/inventaris">Kelola Inventaris &rarr;</Link>
               </Button>
             </div>
           </CardHeader>
@@ -536,7 +543,7 @@ export default function AdminDashboardPage() {
             {loading ? (
               <div className="space-y-3">
                 {Array.from({ length: 3 }).map((_, i) => (
-                  <Skeleton key={i} className="h-8 rounded-none" />
+                  <Skeleton key={i} className="h-10 rounded-none" />
                 ))}
               </div>
             ) : (data?.lowStock.length ?? 0) === 0 ? (
@@ -545,32 +552,75 @@ export default function AdminDashboardPage() {
               </div>
             ) : (
               <div className="max-h-96 overflow-y-auto custom-scrollbar">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Produk</TableHead>
-                      <TableHead>Varian</TableHead>
-                      <TableHead>SKU</TableHead>
-                      <TableHead className="text-right">Stok</TableHead>
-                      <TableHead className="text-right">Min.</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data?.lowStock.map((item) => (
-                      <TableRow key={item.variantId}>
-                        <TableCell className="max-w-48 truncate font-medium">{item.productName}</TableCell>
-                        <TableCell className="text-muted-foreground">{item.variantName || '-'}</TableCell>
-                        <TableCell className="font-mono text-xs">{item.sku}</TableCell>
-                        <TableCell className="text-right">
-                          <span className={cn('font-semibold', item.quantity === 0 ? 'text-destructive' : 'text-red-600')}>
-                            {item.quantity}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right text-muted-foreground">{item.minStock}</TableCell>
+                {/* Desktop View: Clean Table */}
+                <div className="hidden sm:block overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Produk</TableHead>
+                        <TableHead>Varian</TableHead>
+                        <TableHead>SKU</TableHead>
+                        <TableHead className="text-right">Stok</TableHead>
+                        <TableHead className="text-right">Min.</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {data?.lowStock.map((item) => (
+                        <TableRow key={item.variantId} className="hover:bg-muted/40 transition">
+                          <TableCell className="max-w-48 truncate font-medium">{item.productName}</TableCell>
+                          <TableCell className="text-muted-foreground">{item.variantName || '-'}</TableCell>
+                          <TableCell className="font-mono text-xs">{item.sku}</TableCell>
+                          <TableCell className="text-right">
+                            <span
+                              className={cn(
+                                'inline-flex items-center rounded-sm px-2 py-0.5 text-xs font-semibold',
+                                item.quantity === 0
+                                  ? 'bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-300'
+                                  : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                              )}
+                            >
+                              {item.quantity}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right text-muted-foreground">{item.minStock}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Mobile View: Clean Responsive Cards */}
+                <div className="block sm:hidden divide-y divide-border">
+                  {data?.lowStock.map((item) => (
+                    <div key={item.variantId} className="py-3 px-1 space-y-1.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-sm text-foreground truncate">{item.productName}</p>
+                          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                            <span className="inline-flex items-center rounded-sm bg-secondary px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                              {item.variantName || 'All Size'}
+                            </span>
+                            <span className="font-mono text-[11px] text-muted-foreground/80 truncate">
+                              {item.sku}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          {item.quantity === 0 ? (
+                            <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-[11px] font-semibold text-red-700 dark:bg-red-950/60 dark:text-red-300">
+                              Habis (0)
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-semibold text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                              Sisa: {item.quantity}
+                            </span>
+                          )}
+                          <p className="text-[10px] text-muted-foreground mt-0.5">Min: {item.minStock}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </CardContent>

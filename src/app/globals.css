@@ -150,13 +150,15 @@
   }
 }
 
-/* Thermal receipt printing (58mm/80mm) */
+/* Thermal receipt printing (58mm/80mm) & Reports PDF printing (A4) */
 @media print {
   body * {
     visibility: hidden;
   }
   .print-receipt,
-  .print-receipt * {
+  .print-receipt *,
+  .print-report,
+  .print-report * {
     visibility: visible;
   }
   .print-receipt {
@@ -165,5 +167,15 @@
     top: 0;
     width: 100%;
     max-width: 80mm;
+  }
+  .print-report {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: 100%;
+    padding: 0;
+    background: white;
+    color: black;
   }
 }

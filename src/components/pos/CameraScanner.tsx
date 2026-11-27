@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { BarcodeFormat, DecodeHintType } from '@zxing/library'
 import { BrowserMultiFormatReader, type IScannerControls } from '@zxing/browser'
+import { sound } from '@/lib/sound'
 
 interface CameraScannerProps {
   onDetect: (code: string) => void
@@ -169,6 +170,7 @@ export function CameraScanner({
                   setDetectedCode(code)
                   setFlashDetect(true)
                   setTimeout(() => setFlashDetect(false), 500)
+                  sound.playScanBeep()
                   onDetect(code)
                 }
               }
@@ -190,6 +192,7 @@ export function CameraScanner({
                   setDetectedCode(code)
                   setFlashDetect(true)
                   setTimeout(() => setFlashDetect(false), 500)
+                  sound.playScanBeep()
                   onDetect(code)
                 }
               }

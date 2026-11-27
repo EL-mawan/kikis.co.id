@@ -130,41 +130,78 @@ export default function AdminReportsPage() {
       <PageHeader title="Laporan" description="Laporan operasional lengkap dengan ekspor CSV dan cetak PDF." />
 
       {/* Filter bar */}
-      <Card className="rounded-none p-6 shadow-none">
-        <CardContent className="grid gap-4 p-0 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
-          <div className="space-y-1.5">
-            <Label>Jenis Laporan</Label>
-            <Select value={type} onValueChange={(v) => setType(v as ReportType)}>
-              <SelectTrigger className="w-full rounded-none" aria-label="Jenis laporan">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {REPORT_TYPES.map((r) => (
-                  <SelectItem key={r.value} value={r.value}>
-                    {r.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      <Card className="rounded-none p-4 sm:p-6 shadow-none">
+        <CardContent className="space-y-4 p-0">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="report-type">Jenis Laporan</Label>
+              <Select value={type} onValueChange={(v) => setType(v as ReportType)}>
+                <SelectTrigger id="report-type" className="w-full rounded-none" aria-label="Jenis laporan">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {REPORT_TYPES.map((r) => (
+                    <SelectItem key={r.value} value={r.value}>
+                      {r.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="report-from">Dari Tanggal</Label>
+              <Input
+                id="report-from"
+                type="date"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+                className="rounded-none"
+              />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2 lg:col-span-1">
+              <Label htmlFor="report-to">Sampai Tanggal</Label>
+              <Input
+                id="report-to"
+                type="date"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+                className="rounded-none"
+              />
+            </div>
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="report-from">Dari Tanggal</Label>
-            <Input id="report-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="rounded-none" />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="report-to">Sampai Tanggal</Label>
-            <Input id="report-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} className="rounded-none" />
-          </div>
-          <div className="flex gap-2 sm:justify-end">
-            <Button className="h-10 rounded-none" onClick={fetchReport} disabled={loading}>
-              <RefreshCw className={cn('mr-2 h-4 w-4', loading && 'animate-spin')} /> Tampilkan
+
+          {/* Action toolbar */}
+          <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between border-t border-border">
+            <Button
+              className="h-10 rounded-none bg-[#252525] text-white hover:bg-[#383838] px-5 w-full sm:w-auto"
+              onClick={fetchReport}
+              disabled={loading}
+            >
+              <RefreshCw className={cn('mr-2 h-4 w-4', loading && 'animate-spin')} />
+              Tampilkan Laporan
             </Button>
-            <Button variant="outline" className="h-10 gap-2 rounded-none" onClick={exportCsv}>
-              <Download className="h-4 w-4" /> Ekspor CSV
-            </Button>
-            <Button variant="outline" className="h-10 gap-2 rounded-none" onClick={() => window.print()} disabled={rows.length === 0}>
-              <Printer className="h-4 w-4" /> Cetak PDF
-            </Button>
+
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+              <Button
+                variant="outline"
+                className="h-10 gap-2 rounded-none border-border text-xs sm:text-sm hover:bg-secondary/70"
+                onClick={exportCsv}
+                disabled={rows.length === 0}
+              >
+                <Download className="h-4 w-4 text-muted-foreground" />
+                Ekspor CSV
+              </Button>
+              <Button
+                variant="outline"
+                className="h-10 gap-2 rounded-none border-[#B99B79]/60 bg-[#B99B79]/10 text-[#7a6042] dark:text-[#E8DCC8] hover:bg-[#B99B79]/20 hover:border-[#B99B79] font-medium text-xs sm:text-sm transition shadow-xs"
+                onClick={() => window.print()}
+                disabled={rows.length === 0}
+                aria-label="Cetak atau simpan sebagai PDF"
+              >
+                <Printer className="h-4 w-4 text-[#B99B79]" />
+                Cetak PDF
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -174,13 +211,23 @@ export default function AdminReportsPage() {
       </p>
 
       {/* Print-friendly area */}
-      <div className="print-receipt space-y-4" style={{ maxWidth: '210mm' }}>
-        <div className="hidden print:block">
-          <p className="font-display text-lg font-bold tracking-brand">KIKIS</p>
-          <p className="text-sm font-semibold uppercase tracking-widest">Laporan {ranLabel}</p>
-          <p className="text-xs text-muted-foreground">
-            Periode: {formatDate(from)} – {formatDate(to)} · Dicetak {formatDateTime(new Date())}
-          </p>
+      <div className="print-report space-y-4" style={{ maxWidth: '210mm' }}>
+        <div className="hidden print:block border-b-2 border-black pb-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-display text-2xl font-bold tracking-brand text-black">KIKIS</p>
+              <p className="text-xs text-neutral-600">Style Made Simple. — Fashion Retail Management</p>
+            </div>
+            <div className="text-right">
+              <p className="text-sm font-bold uppercase tracking-wider text-black">Laporan {ranLabel}</p>
+              <p className="text-[11px] text-neutral-600">
+                Periode: {formatDate(from)} – {formatDate(to)}
+              </p>
+              <p className="text-[10px] text-neutral-500">
+                Dicetak: {formatDateTime(new Date())}
+              </p>
+            </div>
+          </div>
         </div>
         <Card className="rounded-none p-6 shadow-none">
           <CardContent className="p-0">
