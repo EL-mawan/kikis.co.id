@@ -553,7 +553,8 @@ export default function PosPage() {
           {showCamera && (
             <div className="relative">
               <CameraScanner
-                className="h-64 w-full"
+                className="h-72 w-full"
+                onClose={() => setShowCamera(false)}
                 onDetect={(code) => {
                   toast.info(`Barcode terdeteksi: ${code}`)
                   setScanValue(code)
