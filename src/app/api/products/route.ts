@@ -26,6 +26,8 @@ export async function GET(req: NextRequest) {
     if (category) where.category = { slug: category }
     if (featured) where.isFeatured = true
 
+    const hasPriceFilter = minPrice > 0 || maxPrice > 0
+
     const products = await db.product.findMany({
       where,
       include: {
@@ -37,13 +39,10 @@ export async function GET(req: NextRequest) {
         },
       },
       orderBy: sort === 'price_asc' ? { basePrice: 'asc' } : sort === 'price_desc' ? { basePrice: 'desc' } : { createdAt: 'desc' },
-      skip: (page - 1) * limit,
-      take: limit,
+      ...(hasPriceFilter ? {} : { skip: (page - 1) * limit, take: limit }),
     })
 
-    const total = await db.product.count({ where })
-
-    const mapped = products
+    const mappedAll = products
       .map((p) => {
         const activeVariants = p.variants.filter((v) => (v.inventory?.quantity ?? 0) > 0)
         const stock = p.variants.reduce((acc, v) => acc + (v.inventory?.quantity ?? 0), 0)
@@ -71,6 +70,9 @@ export async function GET(req: NextRequest) {
       // price filtering applied on variant price range
       .filter((p) => (minPrice ? p.maxPrice >= minPrice : true))
       .filter((p) => (maxPrice ? p.price <= maxPrice : true))
+
+    const total = hasPriceFilter ? mappedAll.length : await db.product.count({ where })
+    const mapped = hasPriceFilter ? mappedAll.slice((page - 1) * limit, page * limit) : mappedAll
 
     return NextResponse.json({ products: mapped, total, page, limit, pages: Math.ceil(total / limit) })
   } catch (e) {

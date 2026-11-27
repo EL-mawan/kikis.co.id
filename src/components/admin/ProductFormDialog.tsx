@@ -128,6 +128,7 @@ export function ProductFormDialog({
   useEffect(() => {
     if (!open) return
     if (product) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional data-fetch / sync pattern
       setLoadingDetail(true)
       apiGet<{ product: FullProduct }>(`/api/admin/products/${product.id}`)
         .then(({ product: p }) => {

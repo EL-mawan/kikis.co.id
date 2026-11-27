@@ -38,8 +38,8 @@ export async function GET(req: NextRequest) {
       orderBy: [{ quantity: 'asc' }, { updatedAt: 'desc' }],
     })
 
-    const mapped = inventories
-      .filter((i) => i.variant.product.isActive)
+    const activeInventories = inventories.filter((i) => i.variant.product.isActive)
+    const mapped = activeInventories
       .filter((i) => (lowStock ? i.quantity <= i.minStock : true))
       .map((i) => ({
         variantId: i.variantId,
@@ -65,8 +65,8 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       inventories: mapped,
-      lowStockCount: inventories.filter((i) => i.quantity <= i.minStock && i.variant.product.isActive).length,
-      totalValue: inventories.reduce((a, i) => a + i.quantity * i.variant.costPrice, 0),
+      lowStockCount: activeInventories.filter((i) => i.quantity <= i.minStock).length,
+      totalValue: activeInventories.reduce((a, i) => a + i.quantity * i.variant.costPrice, 0),
       movements: movements.map((m) => ({
         id: m.id,
         productName: m.variant.product.name,

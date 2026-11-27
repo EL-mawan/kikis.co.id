@@ -104,6 +104,7 @@ export default function AdminReportsPage() {
 
   // load initial report on mount only (refresh via "Tampilkan" button)
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional data-fetch / sync pattern
     setFrom(isoDaysFromToday(-29))
     setTo(isoDaysFromToday(0))
   }, [])
@@ -111,6 +112,7 @@ export default function AdminReportsPage() {
   const reportReady = Boolean(from && to)
   useEffect(() => {
     if (!reportReady) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional data-fetch / sync pattern
     fetchReport()
     // Intentionally runs once per ready state; later refreshes use the "Tampilkan" button.
   }, [reportReady])

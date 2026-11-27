@@ -94,6 +94,7 @@ export default function AdminProductsPage() {
   }, [debouncedSearch, category, page])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional data-fetch / sync pattern
     load()
   }, [load])
 
@@ -106,6 +107,7 @@ export default function AdminProductsPage() {
   }, [])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional data-fetch / sync pattern
     setPage(1)
   }, [debouncedSearch, category])
 

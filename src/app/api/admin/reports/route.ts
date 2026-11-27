@@ -37,8 +37,12 @@ export async function GET(req: NextRequest) {
     if (!REPORT_TYPES.includes(type)) return bad('Tipe laporan tidak valid')
     const format = sp.get('format') ?? 'json'
 
-    const from = sp.get('from') ? new Date(`${sp.get('from')}T00:00:00`) : new Date(Date.now() - 30 * 86400000)
-    const to = sp.get('to') ? new Date(`${sp.get('to')}T23:59:59`) : new Date()
+    const fromRaw = sp.get('from')
+    const toRaw = sp.get('to')
+    const parsedFrom = fromRaw && /^\d{4}-\d{2}-\d{2}$/.test(fromRaw) ? new Date(`${fromRaw}T00:00:00+07:00`) : null
+    const parsedTo = toRaw && /^\d{4}-\d{2}-\d{2}$/.test(toRaw) ? new Date(`${toRaw}T23:59:59.999+07:00`) : null
+    const from = parsedFrom && !Number.isNaN(parsedFrom.getTime()) ? parsedFrom : new Date(Date.now() - 30 * 86400000)
+    const to = parsedTo && !Number.isNaN(parsedTo.getTime()) ? parsedTo : new Date()
 
     let rows: Record<string, unknown>[] = []
 

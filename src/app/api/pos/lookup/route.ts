@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
 
     // 1. Exact barcode or SKU match (scanner path)
     const exact = await db.productVariant.findFirst({
-      where: { OR: [{ barcode: code }, { sku: code }] },
+      where: { isActive: true, product: { isActive: true }, OR: [{ barcode: code }, { sku: code }] },
       include: {
         product: { include: { images: { orderBy: { sortOrder: 'asc' }, take: 1 } } },
         size: true, color: true, inventory: true,
@@ -38,6 +38,7 @@ export async function GET(req: NextRequest) {
     const variants = await db.productVariant.findMany({
       where: {
         isActive: true,
+        product: { isActive: true },
         OR: [
           { product: { name: { contains: code } } },
           { sku: { contains: code } },

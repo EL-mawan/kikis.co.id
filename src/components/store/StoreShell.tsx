@@ -235,7 +235,7 @@ export function StoreShell({ children }: { children: React.ReactNode }) {
                   {isStaff ? (
                     <>
                       <DropdownMenuItem onClick={() => router.push('/admin')}>Dasbor Admin</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => router.push('/pos')}>Kasir POS</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => router.push('/loginkasir/pos')}>Kasir POS</DropdownMenuItem>
                     </>
                   ) : (
                     <>
@@ -330,7 +330,7 @@ export function StoreShell({ children }: { children: React.ReactNode }) {
               <Link href="/admin" className="hover:text-accent">
                 Dasbor Admin
               </Link>
-              <Link href="/pos" className="hover:text-accent">
+              <Link href="/loginkasir/pos" className="hover:text-accent">
                 Kasir
               </Link>
             </div>

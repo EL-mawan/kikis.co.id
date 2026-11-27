@@ -10,14 +10,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 function LoginContent() {
   const router = useRouter()
   const sp = useSearchParams()
   const nextParam = sp.get('next')
 
-  const [portal, setPortal] = useState<'customer' | 'staff'>('customer')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -34,7 +32,7 @@ function LoginContent() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), password, portal }),
+        body: JSON.stringify({ email: email.trim(), password, portal: 'customer' }),
       })
       const d = await res.json()
       if (!res.ok) {
@@ -42,11 +40,7 @@ function LoginContent() {
         return
       }
       toast.success(`Selamat datang, ${d.user?.name ?? ''}!`)
-      if (portal === 'staff') {
-        router.replace(nextParam || (d.user?.role === 'CASHIER' ? '/pos' : '/admin'))
-      } else {
-        router.replace(nextParam || '/akun')
-      }
+      router.replace(nextParam || '/akun')
     } catch {
       toast.error('Gagal masuk, periksa koneksi kamu')
     } finally {
@@ -62,122 +56,61 @@ function LoginContent() {
       <p className="mt-2 text-sm text-muted-foreground">Masuk untuk melanjutkan belanja</p>
 
       <div className="mt-8 w-full border border-border bg-white p-6 sm:p-8">
-        <Tabs value={portal} onValueChange={(v) => setPortal(v as 'customer' | 'staff')}>
-          <TabsList className="grid h-11 w-full grid-cols-2">
-            <TabsTrigger value="customer" className="text-sm">Pelanggan</TabsTrigger>
-            <TabsTrigger value="staff" className="text-sm">Staf</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="customer" className="mt-6">
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <Label htmlFor="cust-email">Email</Label>
-                <Input
-                  id="cust-email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="mt-1.5 h-11"
-                  placeholder="nama@email.com"
-                  autoComplete="email"
-                />
-              </div>
-              <div>
-                <Label htmlFor="cust-password">Kata Sandi</Label>
-                <div className="relative mt-1.5">
-                  <Input
-                    id="cust-password"
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="h-11 pr-11"
-                    placeholder="••••••••"
-                    autoComplete="current-password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((s) => !s)}
-                    className="absolute right-2 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center text-muted-foreground hover:text-foreground"
-                    aria-label={showPassword ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'}
-                  >
-                    {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                  </button>
-                </div>
-              </div>
-              <Button type="submit" disabled={loading} className="h-12 w-full bg-primary text-white hover:bg-primary/90">
-                {loading ? (
-                  <>
-                    <Loader2 className="size-4 animate-spin" /> Memproses...
-                  </>
-                ) : (
-                  'Masuk'
-                )}
-              </Button>
-            </form>
-            <p className="mt-4 text-center text-sm text-muted-foreground">
-              Belum punya akun?{' '}
-              <Link href="/daftar" className="text-accent hover:underline">
-                Daftar
-              </Link>
-            </p>
-          </TabsContent>
-
-          <TabsContent value="staff" className="mt-6">
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <Label htmlFor="staff-email">Email Staf</Label>
-                <Input
-                  id="staff-email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="mt-1.5 h-11"
-                  placeholder="staff@kikis.id"
-                  autoComplete="email"
-                />
-              </div>
-              <div>
-                <Label htmlFor="staff-password">Kata Sandi</Label>
-                <div className="relative mt-1.5">
-                  <Input
-                    id="staff-password"
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="h-11 pr-11"
-                    placeholder="••••••••"
-                    autoComplete="current-password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((s) => !s)}
-                    className="absolute right-2 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center text-muted-foreground hover:text-foreground"
-                    aria-label={showPassword ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'}
-                  >
-                    {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                  </button>
-                </div>
-              </div>
-              <Button type="submit" disabled={loading} className="h-12 w-full bg-primary text-white hover:bg-primary/90">
-                {loading ? (
-                  <>
-                    <Loader2 className="size-4 animate-spin" /> Memproses...
-                  </>
-                ) : (
-                  'Masuk sebagai Staf'
-                )}
-              </Button>
-            </form>
-            <p className="mt-4 text-center text-xs text-muted-foreground">
-              Kasir diarahkan ke kasir POS, admin ke dasbor admin.
-            </p>
-          </TabsContent>
-        </Tabs>
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div>
+            <Label htmlFor="cust-email">Email</Label>
+            <Input
+              id="cust-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="mt-1.5 h-11"
+              placeholder="nama@email.com"
+              autoComplete="email"
+            />
+          </div>
+          <div>
+            <Label htmlFor="cust-password">Kata Sandi</Label>
+            <div className="relative mt-1.5">
+              <Input
+                id="cust-password"
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="h-11 pr-11"
+                placeholder="••••••••"
+                autoComplete="current-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((s) => !s)}
+                className="absolute right-2 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center text-muted-foreground hover:text-foreground"
+                aria-label={showPassword ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'}
+              >
+                {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </button>
+            </div>
+          </div>
+          <Button type="submit" disabled={loading} className="h-12 w-full bg-primary text-white hover:bg-primary/90">
+            {loading ? (
+              <>
+                <Loader2 className="size-4 animate-spin" /> Memproses...
+              </>
+            ) : (
+              'Masuk'
+            )}
+          </Button>
+        </form>
+        <p className="mt-4 text-center text-sm text-muted-foreground">
+          Belum punya akun?{' '}
+          <Link href="/daftar" className="text-accent hover:underline">
+            Daftar
+          </Link>
+        </p>
       </div>
 
       <p className="mt-6 text-center text-xs leading-relaxed text-muted-foreground">
-        Demo: budi@example.com / password123 (pelanggan), kasir@kikis.id / password123 (kasir),
-        admin@kikis.id / password123 (admin)
+        Demo: budi@example.com / password123
       </p>
     </div>
   )

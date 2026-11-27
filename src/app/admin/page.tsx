@@ -20,15 +20,22 @@ import {
 import {
   ArrowDownRight,
   ArrowUpRight,
+  Barcode,
+  Boxes,
   CalendarDays,
   Calculator,
+  Layers,
   Package,
   Receipt,
   RefreshCw,
+  Settings,
   ShoppingCart,
   Store,
+  Tags,
+  Ticket,
   TrendingUp,
   UserPlus,
+  Users,
   Wallet,
   type LucideIcon,
 } from 'lucide-react'
@@ -201,11 +208,13 @@ export default function AdminDashboardPage() {
   }, [preset, from, to])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional data-fetch / sync pattern
     setFrom(isoDaysFromToday(-6))
     setTo(isoDaysFromToday(0))
   }, [])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional data-fetch / sync pattern
     load()
   }, [load])
 
@@ -231,6 +240,39 @@ export default function AdminDashboardPage() {
           </Button>
         }
       />
+
+      {/* Mobile / Tablet Quick Access Shortcuts */}
+      <div className="block md:hidden">
+        <div className="mb-2 flex items-center justify-between">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Menu Cepat</p>
+        </div>
+        <div className="grid grid-cols-4 gap-2">
+          {[
+            { href: '/admin/produk', label: 'Produk', icon: Package },
+            { href: '/admin/kategori', label: 'Kategori', icon: Tags },
+            { href: '/admin/varian', label: 'Varian', icon: Layers },
+            { href: '/admin/inventaris', label: 'Stok', icon: Boxes },
+            { href: '/admin/barcode', label: 'Barcode', icon: Barcode },
+            { href: '/admin/voucher', label: 'Voucher', icon: Ticket },
+            { href: '/admin/pelanggan', label: 'Pelanggan', icon: Users },
+            { href: '/admin/pengaturan', label: 'Setting', icon: Settings },
+          ].map((item) => {
+            const Icon = item.icon
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="flex flex-col items-center justify-center rounded border border-border bg-card p-2.5 text-center shadow-xs transition hover:border-[#B99B79] hover:bg-secondary/40 active:scale-95"
+              >
+                <div className="mb-1 flex h-9 w-9 items-center justify-center rounded-full bg-[#B99B79]/10 text-[#B99B79]">
+                  <Icon className="h-4 w-4" />
+                </div>
+                <span className="truncate w-full text-[11px] font-medium text-foreground">{item.label}</span>
+              </Link>
+            )
+          })}
+        </div>
+      </div>
 
       {/* Date range filter */}
       <div className="flex flex-wrap items-center gap-2">

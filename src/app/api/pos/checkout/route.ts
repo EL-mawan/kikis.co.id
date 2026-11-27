@@ -29,13 +29,16 @@ export async function POST(req: NextRequest) {
     // Server-side price recalculation (never trust client)
     const cart = await priceCart(items)
     const type: DiscountType = ['NONE', 'FIXED', 'PERCENT'].includes(discountType ?? '') ? (discountType as DiscountType) : 'NONE'
+    const rawDiscount = Number(discountValue ?? 0)
+    const safeDiscount = Number.isFinite(rawDiscount) ? Math.max(0, Math.round(rawDiscount)) : 0
     const { discountAmount, total } = applyTransactionDiscount(cart.subtotal, {
       discountType: type,
-      discountValue: Math.max(0, Math.round(Number(discountValue ?? 0))),
+      discountValue: safeDiscount,
     })
 
     const method = ['CASH', 'QRIS', 'DEBIT'].includes(paymentMethod ?? '') ? paymentMethod! : 'CASH'
-    const paid = Math.max(0, Math.round(Number(paidAmount ?? 0)))
+    const rawPaid = Number(paidAmount ?? 0)
+    const paid = Number.isFinite(rawPaid) ? Math.max(0, Math.round(rawPaid)) : 0
     if (paid < total) return bad('Jumlah pembayaran kurang dari total')
 
     const transactionNumber = generateTransactionNumber()
@@ -48,7 +51,7 @@ export async function POST(req: NextRequest) {
           cashierName: session.name,
           subtotal: cart.subtotal,
           discountType: type,
-          discountValue: type === 'NONE' ? 0 : Math.round(Number(discountValue ?? 0)),
+          discountValue: type === 'NONE' ? 0 : safeDiscount,
           discountAmount,
           total,
           paidAmount: paid,

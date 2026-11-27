@@ -153,10 +153,12 @@ export default function AdminOrdersPage() {
   }, [status, debouncedSearch, page])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional data-fetch / sync pattern
     load()
   }, [load])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional data-fetch / sync pattern
     setPage(1)
   }, [status, debouncedSearch])
 

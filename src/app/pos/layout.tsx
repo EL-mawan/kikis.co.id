@@ -5,7 +5,7 @@ import { PosShell } from '@/components/pos/PosShell'
 
 export default async function PosLayout({ children }: { children: ReactNode }) {
   const session = await getStaffSession()
-  if (!session) redirect('/masuk?next=/pos')
+  if (!session) redirect('/loginkasir?next=/loginkasir/pos')
 
   return (
     <PosShell userName={session.name} userRole={session.role}>

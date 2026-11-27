@@ -35,6 +35,10 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string 
 
     const existing = await db.product.findUnique({ where: { id } })
     if (!existing) return bad('Produk tidak ditemukan', 404)
+    if (categoryId) {
+      const cat = await db.category.findUnique({ where: { id: categoryId } })
+      if (!cat) return bad('Kategori tidak ditemukan', 400)
+    }
 
     await db.$transaction(async (tx) => {
       await tx.product.update({

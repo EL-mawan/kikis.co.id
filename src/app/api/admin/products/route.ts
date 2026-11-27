@@ -7,10 +7,31 @@ function slugify(s: string) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
 }
 
-let barcodeSeq = 5000
-function nextBarcode() {
-  barcodeSeq += 1
-  return `899${String(barcodeSeq).padStart(10, '0')}`
+async function generateUniqueBarcode(tx: Parameters<Parameters<typeof db.$transaction>[0]>[0], used: Set<string>): Promise<string> {
+  for (let i = 0; i < 50; i++) {
+    const candidate = `899${String(Math.floor(Math.random() * 9000000000) + 1000000000).slice(0, 10)}`
+    if (used.has(candidate)) continue
+    const exists = await tx.productVariant.findUnique({ where: { barcode: candidate } })
+    if (!exists) {
+      used.add(candidate)
+      return candidate
+    }
+  }
+  throw new Error('Gagal membuat barcode unik, coba lagi')
+}
+
+async function generateUniqueSku(tx: Parameters<Parameters<typeof db.$transaction>[0]>[0], slug: string, used: Set<string>): Promise<string> {
+  const prefix = slug.toUpperCase().slice(0, 12) || 'PROD'
+  for (let i = 0; i < 50; i++) {
+    const candidate = `KIK-${prefix}-${Math.floor(Math.random() * 9000 + 1000)}`
+    if (used.has(candidate)) continue
+    const exists = await tx.productVariant.findUnique({ where: { sku: candidate } })
+    if (!exists) {
+      used.add(candidate)
+      return candidate
+    }
+  }
+  throw new Error('Gagal membuat SKU unik, coba lagi')
 }
 
 // GET /api/admin/products?search=&category=&isActive=&page=&limit=
@@ -117,6 +138,9 @@ export async function POST(req: NextRequest) {
     }
 
     const product = await db.$transaction(async (tx) => {
+      const usedBarcodes = new Set<string>()
+      const usedSkus = new Set<string>()
+
       const created = await tx.product.create({
         data: {
           name: name.trim(),
@@ -135,13 +159,15 @@ export async function POST(req: NextRequest) {
       })
 
       for (const v of variantList) {
+        const sku = v.sku?.trim() || await generateUniqueSku(tx, slug, usedSkus)
+        const barcode = v.barcode?.trim() || await generateUniqueBarcode(tx, usedBarcodes)
         const variant = await tx.productVariant.create({
           data: {
             productId: created.id,
             sizeId: v.sizeId || null,
             colorId: v.colorId || null,
-            sku: v.sku?.trim() || `KIK-${slug.toUpperCase().slice(0, 12)}-${Math.floor(Math.random() * 9000 + 1000)}`,
-            barcode: v.barcode?.trim() || nextBarcode(),
+            sku,
+            barcode,
             price: Math.round(v.price),
             costPrice: Math.round(v.costPrice ?? created.costPrice),
           },

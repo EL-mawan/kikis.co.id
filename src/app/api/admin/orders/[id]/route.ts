@@ -16,7 +16,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     const { status } = await req.json()
     if (!VALID_STATUSES.includes(status)) return bad('Status tidak valid')
 
-    const order = await db.order.findUnique({ where: { id }, include: { items: true } })
+    const order = await db.order.findUnique({ where: { id }, include: { items: true, payments: true } })
     if (!order) return bad('Pesanan tidak ditemukan', 404)
     if (order.status === 'CANCELLED') return bad('Pesanan sudah dibatalkan')
     if (order.status === 'COMPLETED') return bad('Pesanan sudah selesai')
@@ -24,12 +24,18 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     const updated = await db.$transaction(async (tx) => {
       const o = await tx.order.update({ where: { id }, data: { status }, include: { items: true } })
 
-      // On verification (WAITING_VERIFICATION entered from PENDING_PAYMENT), mark payment paid
-      if (status === 'WAITING_VERIFICATION' || status === 'PROCESSING') {
-        await tx.payment.updateMany({
-          where: { orderId: id, status: 'PENDING' },
-          data: { status: 'PAID', paidAt: new Date() },
-        })
+      // Mark payment paid when verified/processed/completed
+      if (['WAITING_VERIFICATION', 'PROCESSING', 'READY_TO_SHIP', 'SHIPPED', 'COMPLETED'].includes(status)) {
+        if (order.payments.length > 0) {
+          await tx.payment.updateMany({
+            where: { orderId: id, status: 'PENDING' },
+            data: { status: 'PAID', paidAt: new Date() },
+          })
+        } else {
+          await tx.payment.create({
+            data: { orderId: id, method: order.paymentMethod, amount: order.total, status: 'PAID', paidAt: new Date() },
+          })
+        }
       }
 
       // Cancellation restores stock

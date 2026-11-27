@@ -174,7 +174,7 @@ export default function AccountPage() {
                     </Link>
                   </Button>
                   <Button asChild variant="outline" className="h-11 border-primary">
-                    <Link href="/pos">
+                    <Link href="/loginkasir/pos">
                       <ScanBarcode className="size-4" /> Kasir POS
                     </Link>
                   </Button>

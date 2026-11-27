@@ -37,9 +37,9 @@ export function variantName(size?: string | null, color?: string | null): string
 
 /** Fetch variants from DB and recompute prices from database (never client input) */
 export async function priceCart(items: CartItemInput[]): Promise<PricedCart> {
-  const variantIds = items.map((i) => i.variantId)
+  const variantIds = [...new Set(items.map((i) => i.variantId))]
   const variants = await db.productVariant.findMany({
-    where: { id: { in: variantIds }, isActive: true },
+    where: { id: { in: variantIds }, isActive: true, product: { isActive: true } },
     include: {
       product: { include: { images: { orderBy: { sortOrder: 'asc' }, take: 1 } } },
       size: true,
@@ -49,13 +49,21 @@ export async function priceCart(items: CartItemInput[]): Promise<PricedCart> {
   })
   const vMap = new Map(variants.map((v) => [v.id, v]))
 
-  const priced: PricedItem[] = []
+  // Aggregate total requested quantity per variant to prevent split-line overselling
+  const qtyByVariant = new Map<string, number>()
   for (const item of items) {
-    const v = vMap.get(item.variantId)
-    if (!v) throw new Error(`Varian tidak ditemukan: ${item.variantId}`)
-    if (item.quantity <= 0) throw new Error('Jumlah harus lebih dari 0')
+    if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
+      throw new Error('Jumlah harus berupa bilangan bulat lebih dari 0')
+    }
+    qtyByVariant.set(item.variantId, (qtyByVariant.get(item.variantId) ?? 0) + item.quantity)
+  }
+
+  const priced: PricedItem[] = []
+  for (const [variantId, totalQty] of qtyByVariant.entries()) {
+    const v = vMap.get(variantId)
+    if (!v) throw new Error(`Varian tidak ditemukan atau tidak aktif: ${variantId}`)
     const available = v.inventory?.quantity ?? 0
-    if (item.quantity > available) {
+    if (totalQty > available) {
       throw new Error(`Stok tidak cukup untuk ${v.product.name} (${variantName(v.size?.name, v.color?.name)}). Tersedia: ${available}`)
     }
     priced.push({
@@ -68,8 +76,8 @@ export async function priceCart(items: CartItemInput[]): Promise<PricedCart> {
       image: v.product.images[0]?.url,
       unitPrice: v.price,
       unitCost: v.costPrice,
-      quantity: item.quantity,
-      subtotal: v.price * item.quantity,
+      quantity: totalQty,
+      subtotal: v.price * totalQty,
     })
   }
 

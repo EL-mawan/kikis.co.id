@@ -1,17 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import {
+  AlertTriangle,
   BarChart3,
   Barcode,
   Boxes,
-  ExternalLink,
   LayoutDashboard,
   Layers,
   LogOut,
-  Menu,
   Package,
   Receipt,
   Settings,
@@ -26,8 +25,16 @@ import {
 import { ROLE_LABEL } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { Separator } from '@/components/ui/separator'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 interface NavItem {
   href: string
@@ -151,7 +158,7 @@ function SidebarFooter({ userName, userRole, loggingOut, onLogout }: {
           variant="outline"
           className="mb-2 h-10 w-full justify-start gap-2 rounded-none border-white/20 bg-transparent text-sm text-[#f4f1ec] hover:bg-white/10 hover:text-white"
         >
-          <Link href="/pos">
+          <Link href="/loginkasir/pos">
             <Store className="h-4 w-4" /> Ke Kasir
           </Link>
         </Button>
@@ -178,24 +185,43 @@ export function AdminShell({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
-  const [mobileOpen, setMobileOpen] = useState(false)
+  const router = useRouter()
   const [loggingOut, setLoggingOut] = useState(false)
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false)
 
-  const logout = async () => {
+  // Lock history: only prompt logout when user presses Back while on the main dashboard /admin.
+  // On other pages (/admin/produk, /admin/kategori, etc.), normal browser back/undo is permitted.
+  useEffect(() => {
+    if (pathname !== '/admin') return
+
+    window.history.pushState(null, '', window.location.href)
+    const handlePopState = () => {
+      window.history.pushState(null, '', window.location.href)
+      setLogoutConfirmOpen(true)
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+    }
+  }, [pathname])
+
+  const doLogout = async () => {
     setLoggingOut(true)
     try {
       await fetch('/api/auth/logout', { method: 'POST' })
     } catch {
       // ignore network errors — cookie will expire anyway
     } finally {
-      window.location.assign('/masuk')
+      router.push('/loginkasir')
     }
   }
+
+  const logout = () => setLogoutConfirmOpen(true)
 
   const title = pageTitle(pathname)
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen overflow-x-hidden bg-background">
       {/* Desktop sidebar */}
       <aside
         className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col bg-[#252525] text-[#f4f1ec] md:flex print:hidden"
@@ -213,60 +239,83 @@ export function AdminShell({
 
       {/* Main column */}
       <div className="flex min-h-screen flex-col md:pl-64">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background px-4 lg:px-8 print:hidden">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-10 w-10 md:hidden"
-            onClick={() => setMobileOpen(true)}
-            aria-label="Buka menu navigasi"
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
-          <h2 className="font-display truncate text-sm font-semibold uppercase tracking-widest">{title}</h2>
-          <div className="ml-auto flex items-center gap-1 sm:gap-2">
-            <Button
-              asChild
-              variant="ghost"
-              size="sm"
-              className="h-10 gap-1.5 px-2 text-xs uppercase tracking-wider text-muted-foreground hover:text-foreground sm:px-3"
-            >
-              <Link href="/">
-                <ExternalLink className="h-4 w-4" aria-hidden="true" />
-                Lihat Toko
-              </Link>
-            </Button>
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-background/95 px-4 backdrop-blur lg:px-8 print:hidden">
+          <div className="flex items-center gap-2">
+            <h2 className="font-display truncate text-sm font-semibold uppercase tracking-widest">{title}</h2>
+          </div>
+          <div className="flex items-center gap-2 md:hidden">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#B99B79] text-xs font-bold uppercase text-white">
+              {userName.charAt(0)}
+            </span>
             <Button
               variant="ghost"
               size="icon"
-              className="h-10 w-10 text-muted-foreground hover:text-foreground"
+              className="h-9 w-9 text-muted-foreground hover:text-red-600"
               onClick={logout}
               disabled={loggingOut}
-              aria-label="Keluar dari panel admin"
+              aria-label="Keluar"
             >
               <LogOut className="h-4 w-4" />
             </Button>
           </div>
         </header>
-        <main className="flex-1 p-4 lg:p-8">{children}</main>
+
+        <main className="flex-1 p-4 pb-24 md:pb-8 lg:p-8">{children}</main>
+
+        {/* Mobile / Tablet Bottom Navigation Bar */}
+        <nav
+          aria-label="Navigasi bawah mobile"
+          className="fixed bottom-0 left-0 right-0 z-40 flex h-16 items-center justify-around border-t border-border bg-[#252525] px-2 text-[#f4f1ec] md:hidden print:hidden"
+        >
+          {[
+            { href: '/admin', label: 'Dasbor', icon: LayoutDashboard },
+            { href: '/admin/produk', label: 'Produk', icon: Package },
+            { href: '/admin/pesanan', label: 'Pesanan', icon: ShoppingCart },
+            { href: '/admin/transaksi', label: 'POS', icon: Receipt },
+            { href: '/admin/laporan', label: 'Laporan', icon: BarChart3 },
+          ].map((item) => {
+            const active = item.href === '/admin' ? pathname === '/admin' : pathname.startsWith(item.href)
+            const Icon = item.icon
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  'flex flex-1 flex-col items-center justify-center py-1 text-[10px] font-medium transition-colors',
+                  active
+                    ? 'text-[#B99B79] font-bold'
+                    : 'text-white/60 hover:text-white'
+                )}
+              >
+                <Icon className={cn('h-5 w-5 mb-0.5', active ? 'text-[#B99B79]' : 'text-white/60')} />
+                <span className="truncate max-w-[60px]">{item.label}</span>
+              </Link>
+            )
+          })}
+        </nav>
       </div>
 
-      {/* Mobile drawer */}
-      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent side="left" className="w-72 gap-0 border-0 bg-[#252525] p-0 text-[#f4f1ec]">
-          <SheetHeader className="h-14 justify-center border-b border-white/10 px-4">
-            <SheetTitle asChild>
-              <div>
-                <p className="font-display text-base font-bold tracking-brand text-white">KIKIS</p>
-                <p className="text-[10px] uppercase tracking-widest text-white/50">Panel Admin</p>
-              </div>
-            </SheetTitle>
-          </SheetHeader>
-          <NavContent pathname={pathname} onNavigate={() => setMobileOpen(false)} />
-          <Separator className="bg-white/10" />
-          <SidebarFooter userName={userName} userRole={userRole} loggingOut={loggingOut} onLogout={logout} />
-        </SheetContent>
-      </Sheet>
+      {/* Logout confirmation dialog */}
+      <AlertDialog open={logoutConfirmOpen} onOpenChange={setLogoutConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Konfirmasi Keluar</AlertDialogTitle>
+            <AlertDialogDescription>
+              Apakah Anda yakin ingin keluar dari Panel Admin? Anda harus masuk kembali untuk mengakses panel ini.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={loggingOut}>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={doLogout}
+              disabled={loggingOut}
+              className="bg-red-700 text-white hover:bg-red-800"
+            >
+              {loggingOut ? 'Keluar...' : 'Ya, Keluar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

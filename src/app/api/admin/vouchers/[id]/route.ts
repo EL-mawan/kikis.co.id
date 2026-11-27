@@ -33,7 +33,9 @@ export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: str
     const session = await requireStaff(['SUPER_ADMIN', 'ADMIN'])
     if (!session) return unauthorized()
     const { id } = await ctx.params
-    const used = await db.order.findFirst({ where: { voucherCode: (await db.voucher.findUnique({ where: { id } }))?.code ?? '' } })
+    const existing = await db.voucher.findUnique({ where: { id } })
+    if (!existing) return bad('Voucher tidak ditemukan', 404)
+    const used = await db.order.findFirst({ where: { voucherCode: existing.code } })
     if (used) {
       await db.voucher.update({ where: { id }, data: { isActive: false } })
       return NextResponse.json({ message: 'Voucher pernah digunakan, dinonaktifkan' })

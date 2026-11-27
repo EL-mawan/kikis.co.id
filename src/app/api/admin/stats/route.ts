@@ -17,10 +17,17 @@ function jakartaDayStart(d: Date): Date {
   return new Date(shifted.getTime() - jakartaOffsetMs())
 }
 
-function parseJakartaDate(s: string): Date {
-  // 'YYYY-MM-DD' -> Jakarta midnight
-  const [y, m, d] = s.split('-').map(Number)
-  return new Date(Date.UTC(y, m - 1, d, 17, 0, 0)) // 17:00 UTC prev day = 00:00 Jakarta
+function parseJakartaDate(s: string, endOfDay = false): Date | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s.trim())
+  if (!m) return null
+  const [, yy, mm, dd] = m
+  const y = Number(yy)
+  const mo = Number(mm)
+  const d = Number(dd)
+  const ms = endOfDay
+    ? Date.UTC(y, mo - 1, d, 23, 59, 59, 999)
+    : Date.UTC(y, mo - 1, d, 0, 0, 0, 0)
+  return new Date(ms - jakartaOffsetMs())
 }
 
 function getRange(sp: URLSearchParams): { start: Date; end: Date; label: string } {
@@ -29,17 +36,15 @@ function getRange(sp: URLSearchParams): { start: Date; end: Date; label: string 
   if (range === 'custom') {
     const from = sp.get('from')
     const to = sp.get('to')
-    const start = from ? parseJakartaDate(from) : jakartaDayStart(now)
-    const toD = to ? parseJakartaDate(to) : new Date(now.getTime() + jakartaOffsetMs())
-    toD.setUTCHours(23, 59, 59, 999)
-    const end = new Date(toD.getTime() - jakartaOffsetMs())
-    return { start, end, label: 'Kustom' }
+    const start = (from && parseJakartaDate(from, false)) || jakartaDayStart(now)
+    const end = (to && parseJakartaDate(to, true)) || new Date(jakartaDayStart(now).getTime() + 86400000 - 1)
+    return { start, end: end < start ? new Date(start.getTime() + 86400000 - 1) : end, label: 'Kustom' }
   }
   const start = jakartaDayStart(now)
   const end = new Date(now.getTime() + 60 * 1000)
   if (range === 'yesterday') {
     start.setUTCDate(start.getUTCDate() - 1)
-    end.setTime(start.getTime() + 24 * 60 * 60 * 1000 - 60 * 1000)
+    end.setTime(start.getTime() + 24 * 60 * 60 * 1000 - 1)
     return { start, end, label: 'Kemarin' }
   }
   if (range === 'week') {
@@ -59,7 +64,10 @@ export async function GET(req: NextRequest) {
     if (!session) return unauthorized()
     const sp = req.nextUrl.searchParams
     const { start, end, label } = getRange(sp)
-    const days = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1)
+    const rangeEndRef = sp.get('range') === 'custom' || sp.get('range') === 'yesterday' ? end : new Date()
+    const startDay = jakartaDayStart(start)
+    const endDay = jakartaDayStart(rangeEndRef < start ? start : rangeEndRef)
+    const days = Math.max(1, Math.round((endDay.getTime() - startDay.getTime()) / 86400000) + 1)
 
     const [posTx, orders, orderItems, prevPos, prevOrders] = await Promise.all([
       db.transaction.findMany({

@@ -325,7 +325,7 @@ function CatalogContent() {
                 value={sort}
                 onValueChange={(v) => updateParams({ sort: v })}
               >
-                <SelectTrigger className="h-11 w-[180px] text-sm" aria-label="Urutkan produk">
+                <SelectTrigger className="h-11 w-[150px] sm:w-[180px] text-sm" aria-label="Urutkan produk">
                   <SelectValue placeholder="Urutkan" />
                 </SelectTrigger>
                 <SelectContent>

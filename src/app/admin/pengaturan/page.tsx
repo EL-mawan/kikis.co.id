@@ -53,6 +53,7 @@ export default function AdminSettingsPage() {
   }, [])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional data-fetch / sync pattern
     load()
   }, [load])
 
