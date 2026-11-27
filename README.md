@@ -133,3 +133,4 @@ Aplikasi ini **tidak mengklaim** integrasi aktif dengan layanan berbayar. Slot k
 2. Migrasi ke PostgreSQL: ubah `provider` di `prisma/schema.prisma` menjadi `"postgresql"`, sesuaikan `DATABASE_URL`, jalankan `bun run db:push`, lalu seed ulang bila perlu.
 3. `bun run build` && `bun run start`.
 4. Sediakan printer termal 58mm/80mm untuk struk POS (mencetak via dialog browser).
+# kikis.co.id
