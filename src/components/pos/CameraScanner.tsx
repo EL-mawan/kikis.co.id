@@ -2,8 +2,8 @@
 
 /**
  * CameraScanner — kamera barcode scanner untuk halaman POS.
- * Menggunakan BarcodeDetector API (Chrome/Android) dengan fallback
- * ke polling scan via canvas.
+ * Menggunakan @zxing/browser (bekerja di semua browser: Chrome, Firefox, Safari).
+ * Fallback BarcodeDetector native jika tersedia.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -16,93 +16,43 @@ interface CameraScannerProps {
   className?: string
 }
 
-declare global {
-  interface Window {
-    BarcodeDetector?: new (options?: { formats?: string[] }) => {
-      detect(source: HTMLVideoElement | HTMLCanvasElement | ImageBitmap): Promise<{ rawValue: string }[]>
-    }
-  }
-}
-
 type ScannerState = 'idle' | 'requesting' | 'scanning' | 'error'
 
 export function CameraScanner({ onDetect, className }: CameraScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
-  const detectorRef = useRef<InstanceType<NonNullable<Window['BarcodeDetector']>> | null>(null)
-  const rafRef = useRef<number>(0)
+  const readerRef = useRef<any>(null) // zxing reader, typed loosely
   const lastCodeRef = useRef<string>('')
   const lastDetectTimeRef = useRef<number>(0)
-  const scanFrameRef = useRef<() => void>(() => {})
 
   const [state, setState] = useState<ScannerState>('idle')
   const [errorMsg, setErrorMsg] = useState('')
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment')
-  const [hasBarcodeDetector, setHasBarcodeDetector] = useState(false)
   const [flashDetect, setFlashDetect] = useState(false)
 
-  useEffect(() => {
-    if (typeof window !== 'undefined' && Boolean(window.BarcodeDetector)) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- check native support on mount
-      setHasBarcodeDetector(true)
-    }
-  }, [])
-
   const stopCamera = useCallback(() => {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    // Stop ZXing reader
+    if (readerRef.current) {
+      try { readerRef.current.reset?.() } catch { /* ignore */ }
+      readerRef.current = null
+    }
+    // Stop media tracks
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop())
       streamRef.current = null
     }
-    if (videoRef.current) videoRef.current.srcObject = null
+    if (videoRef.current) {
+      videoRef.current.srcObject = null
+    }
     setState('idle')
   }, [])
-
-  const scanFrame = useCallback(() => {
-    const video = videoRef.current
-    const canvas = canvasRef.current
-    if (!video || !canvas || video.readyState < 2) {
-      rafRef.current = requestAnimationFrame(() => scanFrameRef.current())
-      return
-    }
-
-    canvas.width = video.videoWidth
-    canvas.height = video.videoHeight
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-    ctx.drawImage(video, 0, 0)
-
-    if (detectorRef.current) {
-      detectorRef.current
-        .detect(video)
-        .then((results) => {
-          if (results.length > 0) {
-            const code = results[0].rawValue
-            const now = Date.now()
-            if (code !== lastCodeRef.current || now - lastDetectTimeRef.current > 2000) {
-              lastCodeRef.current = code
-              lastDetectTimeRef.current = now
-              setFlashDetect(true)
-              setTimeout(() => setFlashDetect(false), 300)
-              onDetect(code)
-            }
-          }
-        })
-        .catch(() => {})
-    }
-
-    rafRef.current = requestAnimationFrame(() => scanFrameRef.current())
-  }, [onDetect])
-
-  useEffect(() => {
-    scanFrameRef.current = scanFrame
-  }, [scanFrame])
 
   const startCamera = useCallback(async () => {
     setErrorMsg('')
     setState('requesting')
+
     try {
+      // 1. Get camera stream
       const constraints: MediaStreamConstraints = {
         video: {
           facingMode,
@@ -114,66 +64,80 @@ export function CameraScanner({ onDetect, className }: CameraScannerProps) {
       const stream = await navigator.mediaDevices.getUserMedia(constraints)
       streamRef.current = stream
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        await videoRef.current.play()
-      }
+      const video = videoRef.current
+      if (!video) { stopCamera(); return }
 
-      if (hasBarcodeDetector && window.BarcodeDetector) {
-        detectorRef.current = new window.BarcodeDetector({
-          formats: [
-            'ean_13', 'ean_8', 'code_128', 'code_39', 'code_93',
-            'qr_code', 'upc_a', 'upc_e', 'itf', 'data_matrix',
-          ],
-        })
-      } else {
-        detectorRef.current = null
-      }
+      video.srcObject = stream
+      video.setAttribute('playsinline', 'true')
+      await video.play()
 
       setState('scanning')
-      rafRef.current = requestAnimationFrame(() => scanFrameRef.current())
+
+      // 2. Start ZXing continuous decode
+      const { BrowserMultiFormatReader } = await import('@zxing/browser')
+      const reader = new BrowserMultiFormatReader()
+      readerRef.current = reader
+
+      reader.decodeFromVideoElement(video, (result, err) => {
+        if (result) {
+          const code = result.getText()
+          const now = Date.now()
+          if (code !== lastCodeRef.current || now - lastDetectTimeRef.current > 2000) {
+            lastCodeRef.current = code
+            lastDetectTimeRef.current = now
+            setFlashDetect(true)
+            setTimeout(() => setFlashDetect(false), 400)
+            onDetect(code)
+          }
+        }
+        // suppress NotFoundException (no barcode in frame) — it's normal
+        if (err && err.name !== 'NotFoundException') {
+          console.warn('[CameraScanner] ZXing error:', err)
+        }
+      })
     } catch (err) {
       const e = err as Error
       let msg = 'Tidak dapat mengakses kamera.'
       if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
-        msg = 'Izin kamera ditolak. Aktifkan izin kamera di browser.'
+        msg = 'Izin kamera ditolak. Aktifkan izin kamera di pengaturan browser, lalu muat ulang halaman.'
       } else if (e.name === 'NotFoundError') {
         msg = 'Tidak ada kamera yang ditemukan pada perangkat ini.'
-      } else if (e.name === 'NotReadableError') {
-        msg = 'Kamera sedang digunakan oleh aplikasi lain.'
+      } else if (e.name === 'NotReadableError' || e.name === 'TrackStartError') {
+        msg = 'Kamera sedang digunakan aplikasi lain. Tutup aplikasi kamera lain, lalu coba lagi.'
+      } else if (e.name === 'OverconstrainedError') {
+        msg = 'Kamera tidak mendukung resolusi yang diminta. Coba lagi.'
       }
       setErrorMsg(msg)
       setState('error')
     }
-  }, [facingMode, hasBarcodeDetector])
+  }, [facingMode, onDetect, stopCamera])
 
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+      if (readerRef.current) {
+        try { readerRef.current.reset?.() } catch { /* ignore */ }
+      }
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop())
-        streamRef.current = null
       }
     }
   }, [])
 
-  const toggleCamera = () => {
-    if (state === 'scanning') {
-      stopCamera()
-    }
+  const toggleFacing = () => {
+    stopCamera()
     setFacingMode((m) => (m === 'environment' ? 'user' : 'environment'))
   }
 
+  /* ── IDLE ── */
   if (state === 'idle') {
     return (
       <div className={cn('flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border bg-secondary/40 p-6', className)}>
         <Camera className="size-10 text-muted-foreground/50" />
         <p className="text-sm font-medium text-muted-foreground">Scan barcode dengan kamera</p>
-        {!hasBarcodeDetector && (
-          <p className="text-center text-xs text-amber-600">
-            Browser ini tidak mendukung BarcodeDetector. Gunakan Chrome terbaru untuk hasil terbaik.
-          </p>
-        )}
+        <p className="text-center text-xs text-muted-foreground/70">
+          Mendukung semua browser (Chrome, Firefox, Safari)
+        </p>
         <Button onClick={startCamera} className="h-10 bg-accent text-sm text-white hover:bg-accent/90">
           <Camera className="size-4" />
           Aktifkan Kamera
@@ -182,6 +146,7 @@ export function CameraScanner({ onDetect, className }: CameraScannerProps) {
     )
   }
 
+  /* ── REQUESTING ── */
   if (state === 'requesting') {
     return (
       <div className={cn('flex flex-col items-center justify-center gap-3 rounded-lg border border-border bg-secondary/40 p-6', className)}>
@@ -191,6 +156,7 @@ export function CameraScanner({ onDetect, className }: CameraScannerProps) {
     )
   }
 
+  /* ── ERROR ── */
   if (state === 'error') {
     return (
       <div className={cn('flex flex-col items-center justify-center gap-3 rounded-lg border border-red-200 bg-red-50 p-6', className)}>
@@ -207,17 +173,20 @@ export function CameraScanner({ onDetect, className }: CameraScannerProps) {
     )
   }
 
+  /* ── SCANNING ── */
   return (
     <div className={cn('relative overflow-hidden rounded-lg border border-border bg-black', className)}>
+      {/* Video feed */}
       <video
         ref={videoRef}
         className="h-full w-full object-cover"
         playsInline
         muted
+        autoPlay
         aria-label="Tampilan kamera untuk scan barcode"
       />
-      <canvas ref={canvasRef} className="hidden" aria-hidden />
 
+      {/* Viewfinder overlay */}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
         <div
           className={cn(
@@ -230,13 +199,14 @@ export function CameraScanner({ onDetect, className }: CameraScannerProps) {
               key={corner}
               className={cn(
                 'absolute h-6 w-6 border-[#B99B79]',
-                corner === 'tl' && 'left-0 top-0 border-l-2 border-t-2',
-                corner === 'tr' && 'right-0 top-0 border-r-2 border-t-2',
-                corner === 'bl' && 'bottom-0 left-0 border-b-2 border-l-2',
-                corner === 'br' && 'bottom-0 right-0 border-b-2 border-r-2',
+                corner === 'tl' && 'left-0 top-0 border-l-2 border-t-2 rounded-tl',
+                corner === 'tr' && 'right-0 top-0 border-r-2 border-t-2 rounded-tr',
+                corner === 'bl' && 'bottom-0 left-0 border-b-2 border-l-2 rounded-bl',
+                corner === 'br' && 'bottom-0 right-0 border-b-2 border-r-2 rounded-br',
               )}
             />
           ))}
+          {/* Scan line */}
           <span
             className={cn(
               'absolute left-1 right-1 h-0.5 bg-[#B99B79] opacity-80',
@@ -246,15 +216,16 @@ export function CameraScanner({ onDetect, className }: CameraScannerProps) {
         </div>
       </div>
 
+      {/* Bottom controls */}
       <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
         <span className="rounded-full bg-black/60 px-2.5 py-1 text-[11px] text-white/80">
-          {hasBarcodeDetector ? '● Memindai...' : '● Ketik kode manual'}
+          {flashDetect ? '✓ Terdeteksi!' : '● Memindai...'}
         </span>
         <div className="flex gap-1">
           <Button
             size="icon"
             variant="ghost"
-            onClick={toggleCamera}
+            onClick={toggleFacing}
             className="size-9 rounded-full bg-black/60 text-white hover:bg-black/80"
             aria-label="Ganti kamera depan/belakang"
           >
@@ -272,8 +243,9 @@ export function CameraScanner({ onDetect, className }: CameraScannerProps) {
         </div>
       </div>
 
+      {/* Flash effect on detect */}
       {flashDetect && (
-        <div className="pointer-events-none absolute inset-0 rounded-lg bg-green-400/20 transition-opacity" />
+        <div className="pointer-events-none absolute inset-0 rounded-lg bg-green-400/25 transition-opacity" />
       )}
     </div>
   )
